@@ -36,10 +36,20 @@ def _make_path(path: str, title: str, count: int, uniques: int):
     obj.uniques = uniques
     return obj
 
+def _make_views_traffic(views):
+    """Build a fake View traffic object with a .views property."""
+    obj = MagicMock()
+    obj.views = views
+    return obj
 
-# ---------------------------------------------------------------------------
-# Import the module under test after helpers are ready
-# ---------------------------------------------------------------------------
+
+def _make_clones_traffic(clones):
+    """Build a fake Clones traffic object with a .clones property."""
+    obj = MagicMock()
+    obj.clones = clones
+    return obj
+
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 import log_traffic  # noqa: E402  (import after sys.path change)
@@ -100,12 +110,10 @@ class TestLogViews:
     def test_writes_new_dates(self, tmp_path, monkeypatch):
         monkeypatch.setattr(log_traffic, "VIEWS_FILE", tmp_path / "views.csv")
         repo = MagicMock()
-        repo.get_views_traffic.return_value = {
-            "views": [
-                _make_traffic_item("2024-01-01", 10, 5),
-                _make_traffic_item("2024-01-02", 20, 8),
-            ]
-        }
+        repo.get_views_traffic.return_value = _make_views_traffic([
+            _make_traffic_item("2024-01-01", 10, 5),
+            _make_traffic_item("2024-01-02", 20, 8),
+        ])
         written = log_traffic.log_views(repo)
         assert written == 2
 
@@ -114,14 +122,19 @@ class TestLogViews:
         views_file.write_text("date,total,unique\n2024-01-01,10,5\n")
         monkeypatch.setattr(log_traffic, "VIEWS_FILE", views_file)
         repo = MagicMock()
-        repo.get_views_traffic.return_value = {
-            "views": [
-                _make_traffic_item("2024-01-01", 10, 5),  # already exists
-                _make_traffic_item("2024-01-02", 20, 8),  # new
-            ]
-        }
+        repo.get_views_traffic.return_value = _make_views_traffic([
+            _make_traffic_item("2024-01-01", 10, 5),  # already exists
+            _make_traffic_item("2024-01-02", 20, 8),  # new
+        ])
         written = log_traffic.log_views(repo)
         assert written == 1
+
+    def test_handles_none_traffic(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(log_traffic, "VIEWS_FILE", tmp_path / "views.csv")
+        repo = MagicMock()
+        repo.get_views_traffic.return_value = None
+        written = log_traffic.log_views(repo)
+        assert written == 0
 
 
 # ---------------------------------------------------------------------------
@@ -132,9 +145,9 @@ class TestLogClones:
     def test_writes_new_dates(self, tmp_path, monkeypatch):
         monkeypatch.setattr(log_traffic, "CLONES_FILE", tmp_path / "clones.csv")
         repo = MagicMock()
-        repo.get_clones_traffic.return_value = {
-            "clones": [_make_traffic_item("2024-01-01", 3, 2)]
-        }
+        repo.get_clones_traffic.return_value = _make_clones_traffic(
+            [_make_traffic_item("2024-01-01", 3, 2)]
+        )
         written = log_traffic.log_clones(repo)
         assert written == 1
 
@@ -143,9 +156,16 @@ class TestLogClones:
         clones_file.write_text("date,total,unique\n2024-01-01,3,2\n")
         monkeypatch.setattr(log_traffic, "CLONES_FILE", clones_file)
         repo = MagicMock()
-        repo.get_clones_traffic.return_value = {
-            "clones": [_make_traffic_item("2024-01-01", 3, 2)]
-        }
+        repo.get_clones_traffic.return_value = _make_clones_traffic(
+            [_make_traffic_item("2024-01-01", 3, 2)]
+        )
+        written = log_traffic.log_clones(repo)
+        assert written == 0
+
+    def test_handles_none_traffic(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(log_traffic, "CLONES_FILE", tmp_path / "clones.csv")
+        repo = MagicMock()
+        repo.get_clones_traffic.return_value = None
         written = log_traffic.log_clones(repo)
         assert written == 0
 
@@ -168,6 +188,13 @@ class TestLogReferrers:
         assert "example-source-1" in content
         assert "example-source-2" in content
 
+    def test_handles_none_referrers(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(log_traffic, "REFERRERS_FILE", tmp_path / "referrers.csv")
+        repo = MagicMock()
+        repo.get_top_referrers.return_value = None
+        written = log_traffic.log_referrers(repo)
+        assert written == 0
+
 
 # ---------------------------------------------------------------------------
 # Tests for log_paths
@@ -185,6 +212,13 @@ class TestLogPaths:
         content = (tmp_path / "paths.csv").read_text()
         assert "/README.md" in content
         assert "README" in content
+
+    def test_handles_none_paths(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(log_traffic, "PATHS_FILE", tmp_path / "paths.csv")
+        repo = MagicMock()
+        repo.get_top_paths.return_value = None
+        written = log_traffic.log_paths(repo)
+        assert written == 0
 
 
 # ---------------------------------------------------------------------------
@@ -216,12 +250,12 @@ class TestMain:
         monkeypatch.setattr(log_traffic, "PATHS_FILE", tmp_path / "paths.csv")
 
         fake_repo = MagicMock()
-        fake_repo.get_views_traffic.return_value = {
-            "views": [_make_traffic_item("2024-01-01", 10, 5)]
-        }
-        fake_repo.get_clones_traffic.return_value = {
-            "clones": [_make_traffic_item("2024-01-01", 2, 1)]
-        }
+        fake_repo.get_views_traffic.return_value = _make_views_traffic(
+            [_make_traffic_item("2024-01-01", 10, 5)]
+        )
+        fake_repo.get_clones_traffic.return_value = _make_clones_traffic(
+            [_make_traffic_item("2024-01-01", 2, 1)]
+        )
         fake_repo.get_top_referrers.return_value = [_make_referrer("github.com", 5, 3)]
         fake_repo.get_top_paths.return_value = [_make_path("/README.md", "README", 10, 8)]
 

@@ -60,10 +60,11 @@ def log_views(repo) -> int:
     existing = _read_existing_dates(VIEWS_FILE, "date")
     traffic = repo.get_views_traffic()
     rows = []
-    for view in traffic.get("views", []):
-        date_str = view.timestamp.strftime("%Y-%m-%d")
-        if date_str not in existing:
-            rows.append({"date": date_str, "total": view.count, "unique": view.uniques})
+    if traffic is not None:
+        for view in traffic.views or []:
+            date_str = view.timestamp.strftime("%Y-%m-%d")
+            if date_str not in existing:
+                rows.append({"date": date_str, "total": view.count, "unique": view.uniques})
     return _append_rows(VIEWS_FILE, VIEWS_FIELDNAMES, rows)
 
 
@@ -72,10 +73,11 @@ def log_clones(repo) -> int:
     existing = _read_existing_dates(CLONES_FILE, "date")
     traffic = repo.get_clones_traffic()
     rows = []
-    for clone in traffic.get("clones", []):
-        date_str = clone.timestamp.strftime("%Y-%m-%d")
-        if date_str not in existing:
-            rows.append({"date": date_str, "total": clone.count, "unique": clone.uniques})
+    if traffic is not None:
+        for clone in traffic.clones or []:
+            date_str = clone.timestamp.strftime("%Y-%m-%d")
+            if date_str not in existing:
+                rows.append({"date": date_str, "total": clone.count, "unique": clone.uniques})
     return _append_rows(CLONES_FILE, CLONES_FIELDNAMES, rows)
 
 
@@ -90,7 +92,7 @@ def log_referrers(repo) -> int:
             "total": r.count,
             "unique": r.uniques,
         }
-        for r in referrers
+        for r in (referrers or [])
     ]
     return _append_rows(REFERRERS_FILE, REFERRERS_FIELDNAMES, rows)
 
@@ -107,7 +109,7 @@ def log_paths(repo) -> int:
             "total": p.count,
             "unique": p.uniques,
         }
-        for p in paths
+        for p in (paths or [])
     ]
     return _append_rows(PATHS_FILE, PATHS_FIELDNAMES, rows)
 
