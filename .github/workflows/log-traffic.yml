@@ -1,0 +1,45 @@
+name: Log Repo Traffic
+
+on:
+  schedule:
+    # Run daily at 06:00 UTC so GitHub's traffic data for the previous day
+    # is fully settled before we fetch it.
+    - cron: "0 6 * * *"
+  workflow_dispatch: # Allow manual runs for testing
+
+jobs:
+  log-traffic:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # needed to commit the updated CSV files back to the repo
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Log traffic data
+        env:
+          TRAFFIC_GITHUB_TOKEN: ${{ secrets.TRAFFIC_GITHUB_TOKEN }}
+          TRAFFIC_REPO: ${{ github.repository }}
+        run: python src/log_traffic.py
+
+      - name: Commit updated traffic data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          # Only commit when there is actually something new to record
+          if git diff --cached --quiet; then
+            echo "No new traffic data to commit."
+          else
+            git commit -m "chore: update traffic data [skip ci]"
+            git push
+          fi
